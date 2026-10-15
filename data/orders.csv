@@ -1,0 +1,11 @@
+Transaction_ID,Date,Produit,Categorie,Prix,Quantite
+1001,2023-10-01,Laptop Pro,Electronique,1200.50,1
+1002,2023-10-01,Souris Sans Fil,Electronique,25.99,2
+1003,2023-10-02,Clavier Mecanique,,89.90,1
+1004,2023-10-03,Bureau Gamer,Mobilier,150.00,1
+1005,2023-10-03,Chaise Ergonomique,Mobilier,-199.99,1
+1006,2023-10-04,Casque Audio,Electronique,45.00,NULL
+1007,2023-10-05,Ecran 27 pouces,Electronique,250.00,2
+1008,2023-10-05,Lampe de Bureau,Mobilier,15.50,3
+1009,2023-10-06,Laptop Pro,Electronique,1200.50,1
+1010,2023-10-07,Tapis de Souris,,9.99,5

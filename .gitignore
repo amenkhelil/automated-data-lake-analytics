@@ -1,0 +1,13 @@
+# Fichiers Terraform
+.terraform/
+.terraform.*
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+
+# Variables d'environnement
+.env
+
+# Scripts temporaires ou logs
+*.log
+*.tmp
