@@ -5,12 +5,12 @@
 -- Table cible     : clean_processed (générée par le Crawler depuis S3 processed/)
 -- ====================================================================
 
--- 1. Vue d'ensemble des données transformées
+-- 1 -- Vue d'ensemble des données transformées
 SELECT * 
 FROM "analytics_datalake_db"."clean_processed" 
 LIMIT 10;
 
--- 2. Indicateurs clés de performance (KPIs Globaux)
+-- 2 -- Indicateurs clés de performance (KPIs Globaux)
 --    Valide le nombre total de commandes nettoyées, le CA global et le panier moyen
 SELECT 
     COUNT(*) AS total_commandes,
@@ -20,7 +20,7 @@ SELECT
     ROUND(MAX(montant_total), 2) AS commande_max
 FROM "analytics_datalake_db"."clean_processed";
 
--- 3. Chiffre d'affaires et volume par catégorie
+-- 3 -- Chiffre d'affaires et volume par catégorie
 --    Permet de vérifier le traitement des catégories (y compris 'Non spécifié')
 SELECT 
     categorie,
@@ -31,7 +31,7 @@ FROM "analytics_datalake_db"."clean_processed"
 GROUP BY categorie
 ORDER BY chiffre_affaires_categorie DESC;
 
--- 4. Top des produits les plus vendus en volume
+-- 4 -- Top des produits les plus vendus en volume
 SELECT 
     produit,
     categorie,

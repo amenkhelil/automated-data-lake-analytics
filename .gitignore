@@ -8,6 +8,13 @@ terraform.tfstate.backup
 # Variables d'environnement
 .env
 
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
 # Scripts temporaires ou logs
 *.log
 *.tmp
+*.zip

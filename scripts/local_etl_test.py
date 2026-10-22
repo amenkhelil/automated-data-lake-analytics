@@ -73,8 +73,7 @@ def test_transformation_pipeline():
 
     assert len(cleaned_records) == 9, "Le nombre d'enregistrements valides attendu est de 9"
     assert len(rejected_records) == 1, "Une seule anomalie (prix négatif) doit être rejetée"
-    print("\n[OK] Validation réussie : les règles de transformation sont conformes aux spécifications.")
-    return True
+    print("\n[OK] Validation réussie : règles conformes.")
 
 if __name__ == "__main__":
     test_transformation_pipeline()
