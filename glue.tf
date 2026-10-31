@@ -5,10 +5,11 @@ data "aws_iam_role" "lab_role" {
 
 # Upload du script PySpark sur S3
 resource "aws_s3_object" "glue_script" {
-  bucket = aws_s3_bucket.datalake.id
-  key    = "scripts/glue_etl.py"
-  source = "${path.module}/scripts/glue_etl.py"
-  etag   = filemd5("${path.module}/scripts/glue_etl.py")
+  bucket     = local.bucket_name
+  key        = "scripts/glue_etl.py"
+  source     = "${path.module}/scripts/glue_etl.py"
+  etag       = filemd5("${path.module}/scripts/glue_etl.py")
+  depends_on = [terraform_data.datalake_bucket]
 }
 
 # Définition du Job ETL AWS Glue
@@ -24,7 +25,7 @@ resource "aws_glue_job" "orders_etl" {
 
   command {
     name            = "glueetl"
-    script_location = "s3://${aws_s3_bucket.datalake.bucket}/scripts/glue_etl.py"
+    script_location = "s3://${local.bucket_name}/scripts/glue_etl.py"
     python_version  = "3"
   }
 
@@ -33,7 +34,7 @@ resource "aws_glue_job" "orders_etl" {
     "--continuous-log-logGroup"          = "/aws-glue/jobs"
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-metrics"                   = "true"
-    "--S3_BUCKET_NAME"                   = aws_s3_bucket.datalake.bucket
+    "--S3_BUCKET_NAME"                   = local.bucket_name
   }
 
   depends_on = [

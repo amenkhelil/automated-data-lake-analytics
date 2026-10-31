@@ -11,7 +11,7 @@ resource "aws_glue_crawler" "processed_crawler" {
   role          = data.aws_iam_role.lab_role.arn
 
   s3_target {
-    path = "s3://${aws_s3_bucket.datalake.bucket}/processed/"
+    path = "s3://${local.bucket_name}/processed/"
   }
 
   table_prefix = "clean_"
@@ -37,7 +37,7 @@ resource "aws_athena_workgroup" "analytics_workgroup" {
     publish_cloudwatch_metrics_enabled = true
 
     result_configuration {
-      output_location = "s3://${aws_s3_bucket.datalake.bucket}/athena-results/"
+      output_location = "s3://${local.bucket_name}/athena-results/"
     }
   }
 

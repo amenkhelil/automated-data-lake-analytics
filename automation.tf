@@ -34,7 +34,7 @@ resource "aws_lambda_permission" "allow_s3" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.pipeline_orchestrator.function_name
   principal     = "s3.amazonaws.com"
-  source_arn    = aws_s3_bucket.datalake.arn
+  source_arn    = local.bucket_arn
 }
 
 resource "aws_lambda_permission" "allow_eventbridge" {
@@ -47,7 +47,7 @@ resource "aws_lambda_permission" "allow_eventbridge" {
 
 # 4. Déclencheur S3 : Dès qu'un fichier .csv arrive dans raw/, réveille Lambda
 resource "aws_s3_bucket_notification" "raw_upload_trigger" {
-  bucket = aws_s3_bucket.datalake.id
+  bucket = local.bucket_name
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.pipeline_orchestrator.arn
@@ -56,7 +56,10 @@ resource "aws_s3_bucket_notification" "raw_upload_trigger" {
     filter_suffix       = ".csv"
   }
 
-  depends_on = [aws_lambda_permission.allow_s3]
+  depends_on = [
+    aws_lambda_permission.allow_s3,
+    terraform_data.datalake_bucket
+  ]
 }
 
 # 5. Règle EventBridge : Dès que le job Glue réussit, réveille Lambda pour lancer le Crawler
