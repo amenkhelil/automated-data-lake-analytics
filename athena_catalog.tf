@@ -29,8 +29,9 @@ resource "aws_glue_crawler" "processed_crawler" {
 
 # Workgroup Amazon Athena
 resource "aws_athena_workgroup" "analytics_workgroup" {
-  name        = "analytics_workgroup"
-  description = "Workgroup Athena pour les requêtes du Data Lake"
+  name          = "analytics_workgroup"
+  description   = "Workgroup Athena pour les requêtes du Data Lake"
+  force_destroy = true
 
   configuration {
     enforce_workgroup_configuration    = true
