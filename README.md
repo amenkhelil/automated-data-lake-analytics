@@ -220,7 +220,33 @@ ORDER BY ca_categorie DESC;
 
 ---
 
-## 10. Suppression des Ressources
+## 10. Perspectives d'Évolution et Améliorations Futures
+
+Pour faire évoluer ce Data Lake vers une architecture d'entreprise à plus grande échelle, trois axes majeurs sont identifiés :
+
+### 1. Intégration d'un framework de Data Quality et Data Contracts (AWS Deequ / Great Expectations)
+* **Objectif** : Valider rigoureusement la conformité des schémas et des règles métier en amont de la zone de consommation.
+* **Mise en œuvre** : Implémenter des contrôles automatisés (complétude, plages de valeurs, contraintes d'unicité) directement dans le job PySpark via la bibliothèque open source **AWS Deequ** ou **Great Expectations**.
+* **Bénéfice** : Routage automatique des enregistrements non conformes vers une zone de quarantaine (`s3://.../quarantine/`) avec alerte SNS, évitant la pollution du Data Lake sans interrompre le pipeline global.
+
+### 2. Transition vers une architecture Lakehouse avec Apache Iceberg
+* **Objectif** : Dépasser les contraintes du stockage Parquet traditionnel en adoptant un format de table ouvert et transactionnel.
+* **Mise en œuvre** : Configurer AWS Glue et Amazon Athena pour utiliser le format de table **Apache Iceberg**, nativement supporté par Glue 4.0.
+* **Bénéfice** : Prise en charge des transactions ACID, mutations conformes RGPD (mises à jour et suppressions ciblées sans réécriture complète), fonctionnalités de *Time Travel* pour l'audit historique, et élimination du besoin de Crawler grâce aux métadonnées intégrées d'Iceberg.
+
+### 3. Visualisation Décisionnelle et Tableaux de Bord Automatisés (Amazon QuickSight / Apache Superset)
+* **Objectif** : Fournir une couche de restitution visuelle et interactive accessible directement aux équipes métiers.
+* **Mise en œuvre** : Connecter Amazon Athena à **Amazon QuickSight** (avec moteur de calcul en mémoire SPICE) ou déployer **Apache Superset** connecté au workgroup dédié.
+* **Bénéfice** : Rafraîchissement automatique des tableaux de bord financiers et opérationnels (suivi du chiffre d'affaires, panier moyen par catégorie, volumes de ventes) à chaque nouvel arrivage de données.
+
+### 4. Ingestion Universelle Multi-Domaines par Agent Intelligent (Architecture Data Mesh)
+* **Objectif** : Remplacer la multiplication de scripts ETL spécifiques (un script par département : Finance, RH, Ventes, Logistique) par un point d'entrée unique et intelligent.
+* **Mise en œuvre** : Déployer un agent d'ingénierie de données en amont du calcul distribué. À chaque dépôt d'un fichier non identifié dans la zone d'atterrissage (`raw/`), l'agent inspecte les en-têtes et la distribution sémantique d'un échantillon pour classifier automatiquement le domaine métier (Finance, RH, Ventes), sélectionner ou générer à la volée le plan de transformation PySpark correspondant, et router les données vers les partitions et bases de données cibles appropriées dans Glue Data Catalog.
+* **Bénéfice** : Onboarding instantané de nouvelles sources de données sans intervention humaine, élimination de dizaines de scripts redondants à maintenir, et transition naturelle vers une gouvernance décentralisée de type *Data Mesh*.
+
+---
+
+## 11. Suppression des Ressources
 
 Pour supprimer l'ensemble des composants AWS sans laisser de ressources orphelines :
 
