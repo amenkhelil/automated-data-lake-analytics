@@ -1,0 +1,6 @@
+Employee_ID,Nom,Prenom,Departement,Salaire,Date_Embauche,SSN
+EMP-101,Dupont,Jean,Engineering,65000,2021-03-15,1850575123456
+EMP-102,Martin,Sophie,Marketing,52000,2022-06-01,2880775654321
+EMP-103,Bernard,Alexandre,Finance,58000,2020-01-10,1900275987654
+EMP-104,Petit,Camille,Ressources Humaines,48000,2023-09-01,2951175321654
+
