@@ -1,8 +1,17 @@
-# 1. Compression automatique du script Python pour la fonction Lambda
+# 1. Compression automatique des scripts Python pour la fonction Lambda
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/scripts/lambda_trigger.py"
   output_path = "${path.module}/scripts/lambda_trigger.zip"
+
+  source {
+    content  = file("${path.module}/scripts/lambda_trigger.py")
+    filename = "lambda_trigger.py"
+  }
+
+  source {
+    content  = file("${path.module}/scripts/data_mesh_agent.py")
+    filename = "data_mesh_agent.py"
+  }
 }
 
 # 2. Définition de la fonction AWS Lambda d'orchestration

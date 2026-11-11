@@ -295,31 +295,23 @@ class DataMeshAgent:
     # ------------------------------------------------------------------
 
     @classmethod
-    def generate_active_pyspark_script(
+    def generate_script_from_headers(
         cls,
-        filepath: str,
-        output_script_path: str = "scripts/active_etl.py",
+        headers: List[str],
+        output_script_path: str = None,
+        source_name: str = "stream"
     ) -> Dict[str, Any]:
         """
-        Analyse le fichier entrant et génère scripts/active_etl.py.
-
-        Séquence d'exécution :
-          1. Inspection & classification du domaine
-          2. Routage si score de confiance insuffisant (< 60 %)
-          3. Construction du contenu PySpark spécifique au domaine
-          4. Validation syntaxique AST
-          5. Vérification des imports (liste blanche)
-          6. Archivage horodaté
-          7. Écriture sur disque
+        Génère et valide le script PySpark directement à partir des en-têtes.
+        Utilisable aussi bien en local que dans un runtime serverless (AWS Lambda).
         """
-        headers, _    = cls.inspect_sample(filepath)
         domain, confidence = cls.classify_domain(headers)
-        policy        = cls.DOMAIN_POLICIES.get(domain, cls.DOMAIN_POLICIES["SALES_ECOMMERCE"])
+        policy = cls.DOMAIN_POLICIES.get(domain, cls.DOMAIN_POLICIES["SALES_ECOMMERCE"])
 
         partition_col = (
             policy["partition_col"]
             if policy["partition_col"] in headers
-            else (headers[1] if len(headers) > 1 else headers[0])
+            else (headers[1] if len(headers) > 1 else (headers[0] if headers else "partition_date"))
         )
         database_name = policy["database"]
         table_name    = policy["table"]
@@ -327,32 +319,20 @@ class DataMeshAgent:
 
         # --- Routage selon le score de confiance ---
         if confidence < CONFIDENCE_WARNING:
-            review_path = str(Path(output_script_path).parent / "review" / Path(filepath).name)
-            os.makedirs(os.path.dirname(os.path.abspath(review_path)), exist_ok=True)
-            shutil.copy2(filepath, review_path)
-            print(
-                f"[AGENT] Score {confidence}% insuffisant — "
-                f"fichier routé vers révision humaine : {review_path}"
-            )
             return {
                 "domain":             domain,
                 "confidence":         confidence,
                 "output_script":      None,
+                "script_content":     None,
                 "database":           database_name,
                 "table":              table_name,
                 "fallback_used":      False,
                 "security_validated": False,
                 "archive_path":       None,
                 "status":             "REVIEW_REQUIRED",
-                "review_path":        review_path,
             }
 
         confidence_status = "OK" if confidence >= CONFIDENCE_AUTONOMOUS else "WARNING"
-        if confidence_status == "WARNING":
-            print(
-                f"[AGENT] Score {confidence}% — domaine '{domain}' accepté "
-                f"sous le seuil d'autonomie complète ({CONFIDENCE_AUTONOMOUS}%)."
-            )
 
         # --- Bloc de gouvernance spécifique au domaine ---
         if domain == "HUMAN_RESOURCES":
@@ -380,7 +360,7 @@ if "Taux_TVA" in df_valid.columns:
     df_valid = df_valid.withColumn("Montant_TVA", round(col("Montant_HT") * col("Taux_TVA"), 2))
     df_valid = df_valid.withColumn("Montant_TTC", round(col("Montant_HT") * (lit(1.0) + col("Taux_TVA")), 2))"""
             quality_filter    = '(col("Montant_HT") > 0) if "Montant_HT" in df_raw.columns else lit(True)'
-            quarantine_reason = 'when(col("Montant_HT") <= 0, lit("Montant HT <= 0")).otherwise(lit("Format invalide"))'
+            quarantine_reason = 'when(col("Montant_HT") <= 0, lit("Montant HT <= 0")).otherwise(lit("Format invalide")) if "Montant_HT" in df_raw.columns else lit("Format invalide")'
 
         else:  # SALES_ECOMMERCE et domaines génériques
             governance_code = """\
@@ -399,8 +379,8 @@ if "Categorie" in df_valid.columns:
     )
 if "Prix" in df_valid.columns and "Quantite" in df_valid.columns:
     df_valid = df_valid.withColumn("Montant_Total", round(col("Prix") * col("Quantite"), 2))"""
-            quality_filter    = '(col("Prix").isNotNull()) & (col("Prix") > 0)'
-            quarantine_reason = 'when(~((col("Prix").isNotNull()) & (col("Prix") > 0)), lit("Prix unitaire <= 0 ou invalide")).otherwise(lit("Donnée corrompue"))'
+            quality_filter    = '((col("Prix").isNotNull()) & (col("Prix") > 0)) if "Prix" in df_raw.columns else lit(True)'
+            quarantine_reason = 'when(~((col("Prix").isNotNull()) & (col("Prix") > 0)), lit("Prix unitaire <= 0 ou invalide")).otherwise(lit("Donnée corrompue")) if "Prix" in df_raw.columns else lit("Donnée corrompue")'
 
         # --- Construction du contenu PySpark complet ---
         governance_rules_str = ", ".join(policy["governance_rules"])
@@ -424,7 +404,12 @@ from awsglue.job import Job
 from pyspark.sql.functions import col, when, round, to_date, lit, current_timestamp
 
 # 1. Initialisation de la session AWS Glue
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'S3_BUCKET_NAME'])
+raw_argv = sys.argv
+opt_args = ['JOB_NAME', 'S3_BUCKET_NAME']
+if any(a.startswith('--SOURCE_KEY') for a in raw_argv):
+    opt_args.append('SOURCE_KEY')
+
+args = getResolvedOptions(sys.argv, opt_args)
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -432,7 +417,8 @@ job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
 bucket_name     = args['S3_BUCKET_NAME']
-raw_path        = f"s3://{{bucket_name}}/raw/"
+source_key      = args.get('SOURCE_KEY', 'raw/')
+raw_path        = f"s3://{{bucket_name}}/{{source_key}}"
 processed_path  = f"s3://{{bucket_name}}/{target_path}"
 quarantine_path = f"s3://{{bucket_name}}/quarantine/"
 iceberg_path    = f"s3://{{bucket_name}}/iceberg-warehouse/{database_name}/{table_name}"
@@ -476,12 +462,19 @@ print(f"[STOCKAGE] Écriture Parquet dans {{processed_path}}...")
 )
 
 # 6. Synchronisation Lakehouse Apache Iceberg (ACID)
+iceberg_table = f"glue_catalog.{database_name}.{table_name}_iceberg"
 try:
-    print(f"[LAKEHOUSE] Synchronisation Iceberg vers {{iceberg_path}}...")
-    df_final.write.format("iceberg").mode("append").save(iceberg_path)
-    print("[LAKEHOUSE] Table Iceberg mise à jour.")
+    print(f"[LAKEHOUSE] Initialisation du namespace : {database_name}...")
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS glue_catalog.{database_name}")
+    print(f"[LAKEHOUSE] Synchronisation de la table Iceberg {{iceberg_table}}...")
+    (
+        df_final.writeTo(iceberg_table)
+        .tableProperty("format-version", "2")
+        .createOrReplace()
+    )
+    print(f"[LAKEHOUSE] Table Iceberg mise à jour avec succès dans {{iceberg_path}}.")
 except Exception as exc:
-    print(f"[LAKEHOUSE NOTE] Mode Parquet standard utilisé (Iceberg indisponible) : {{exc}}")
+    print(f"[LAKEHOUSE NOTE] Mode Parquet standard validé (Iceberg fallback) : {{exc}}")
 
 print("[ETL] Job terminé avec succès.")
 job.commit()
@@ -491,33 +484,74 @@ job.commit()
         try:
             cls._validate_syntax(script_content)
         except SyntaxError as exc:
-            return cls._apply_fallback(
-                reason=f"SyntaxError dans le script généré : {exc}",
-                output_script_path=output_script_path,
-            )
+            if output_script_path:
+                return cls._apply_fallback(
+                    reason=f"SyntaxError dans le script généré : {exc}",
+                    output_script_path=output_script_path,
+                )
+            return {"status": "FALLBACK_APPLIED", "script_content": _FALLBACK_TEMPLATE, "fallback_used": True}
 
         # --- Vérification des imports ---
         try:
             cls._check_security(script_content)
         except ImportError as exc:
-            return cls._apply_fallback(
-                reason=str(exc),
-                output_script_path=output_script_path,
-            )
+            if output_script_path:
+                return cls._apply_fallback(
+                    reason=str(exc),
+                    output_script_path=output_script_path,
+                )
+            return {"status": "FALLBACK_APPLIED", "script_content": _FALLBACK_TEMPLATE, "fallback_used": True}
 
-        # --- Archivage horodaté avant écriture ---
-        archive_path = cls._archive_script(script_content, domain)
+        archive_path = None
+        if output_script_path:
+            archive_path = cls._archive_script(script_content, domain)
+            output_dir = os.path.dirname(os.path.abspath(output_script_path))
+            os.makedirs(output_dir, exist_ok=True)
+            with open(output_script_path, "w", encoding="utf-8") as fh:
+                fh.write(script_content)
 
-        # --- Écriture du script actif ---
-        output_dir = os.path.dirname(os.path.abspath(output_script_path))
-        os.makedirs(output_dir, exist_ok=True)
-        with open(output_script_path, "w", encoding="utf-8") as fh:
-            fh.write(script_content)
+        return {
+            "domain":             domain,
+            "confidence":         confidence,
+            "output_script":      output_script_path,
+            "script_content":     script_content,
+            "database":           database_name,
+            "table":              table_name,
+            "fallback_used":      False,
+            "security_validated": True,
+            "archive_path":       archive_path,
+            "status":             confidence_status,
+        }
 
-        print(f"[AGENT] Fichier analysé     : {os.path.basename(filepath)}")
-        print(f"[AGENT] Domaine détecté     : {domain} ({confidence}%)")
-        print(f"[AGENT] Script actif généré : {output_script_path}")
-        print(f"[AGENT] Archive horodatée   : {archive_path}")
+    @classmethod
+    def generate_active_pyspark_script(
+        cls,
+        filepath: str,
+        output_script_path: str = "scripts/active_etl.py",
+    ) -> Dict[str, Any]:
+        """
+        Analyse le fichier entrant et génère scripts/active_etl.py.
+        """
+        headers, _ = cls.inspect_sample(filepath)
+        res = cls.generate_script_from_headers(
+            headers=headers,
+            output_script_path=output_script_path,
+            source_name=os.path.basename(filepath)
+        )
+        if res.get("status") == "REVIEW_REQUIRED":
+            review_path = str(Path(output_script_path).parent / "review" / Path(filepath).name)
+            os.makedirs(os.path.dirname(os.path.abspath(review_path)), exist_ok=True)
+            shutil.copy2(filepath, review_path)
+            res["review_path"] = review_path
+
+        if res.get("output_script"):
+            print(f"[AGENT] Fichier analysé     : {os.path.basename(filepath)}")
+            print(f"[AGENT] Domaine détecté     : {res['domain']} ({res['confidence']}%)")
+            print(f"[AGENT] Script actif généré : {res['output_script']}")
+            if res.get("archive_path"):
+                print(f"[AGENT] Archive horodatée   : {res['archive_path']}")
+
+        return res
 
         return {
             "domain":             domain,
