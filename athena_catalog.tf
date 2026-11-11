@@ -1,7 +1,17 @@
 # Base de données dans AWS Glue Data Catalog
 resource "aws_glue_catalog_database" "datalake_db" {
   name        = "analytics_datalake_db"
-  description = "Base de données Glue Catalog pour les données nettoyées"
+  description = "Base de données Glue Catalog pour les données nettoyées (Ventes)"
+}
+
+resource "aws_glue_catalog_database" "finance_db" {
+  name        = "finance_datalake_db"
+  description = "Base de données Glue Catalog pour le domaine Finance"
+}
+
+resource "aws_glue_catalog_database" "hr_db" {
+  name        = "hr_datalake_db"
+  description = "Base de données Glue Catalog pour le domaine RH"
 }
 
 # Glue Crawler pour découvrir le schéma Parquet
