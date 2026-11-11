@@ -18,3 +18,7 @@ __pycache__/
 *.log
 *.tmp
 *.zip
+scripts/active_etl.py
+scripts/archive/
+scripts/review/
+
