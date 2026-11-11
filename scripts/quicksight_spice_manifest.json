@@ -1,0 +1,34 @@
+{
+  "fileLocations": [
+    {
+      "URIPrefixes": [
+        "s3://<VOTRE_BUCKET>/processed/"
+      ]
+    }
+  ],
+  "globalUploadSettings": {
+    "format": "PARQUET",
+    "delimiter": ",",
+    "textqualifier": "\"",
+    "firstRowAsHeader": "true"
+  },
+  "quicksightSettings": {
+    "datasetName": "DataLake_Orders_SPICE_Dataset",
+    "importMode": "SPICE",
+    "refreshSchedule": {
+      "frequency": "EVENT_DRIVEN",
+      "triggerSource": "aws.glue.JobRunStateChange.SUCCEEDED"
+    },
+    "calculatedFields": [
+      {
+        "name": "Panier_Moyen",
+        "expression": "avg({montant_total})"
+      },
+      {
+        "name": "CA_Total",
+        "expression": "sum({montant_total})"
+      }
+    ]
+  }
+}
+
